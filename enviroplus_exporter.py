@@ -12,7 +12,10 @@ from prometheus_client import start_http_server, Gauge, Histogram
 
 from bme280 import BME280
 from enviroplus import gas
-from pms5003 import PMS5003, ReadTimeoutError as pmsReadTimeoutError
+from pms5003 import PMS5003
+from pms5003 import ReadTimeoutError as pmsReadTimeoutError
+from pms5003 import SerialTimeoutError as pmsSerialTimeoutError
+from pms5003 import ChecksumMismatchError as pmsChecksumMismatchError
 
 from influxdb_client import InfluxDBClient, Point
 from influxdb_client.client.write_api import SYNCHRONOUS
@@ -33,8 +36,6 @@ except ImportError:
 logging.basicConfig(
     format='%(asctime)s.%(msecs)03d %(levelname)-8s %(message)s',
     level=logging.INFO,
-    handlers=[logging.FileHandler("enviroplus_exporter.log"),
-              logging.StreamHandler()],
     datefmt='%Y-%m-%d %H:%M:%S')
 
 logging.info("""enviroplus_exporter.py - Expose readings from the Enviro+ sensor by Pimoroni in Prometheus format
@@ -165,7 +166,7 @@ def get_particulates():
     """Get the particulate matter readings"""
     try:
         pms_data = pms5003.read()
-    except pmsReadTimeoutError:
+    except (pmsReadTimeoutError, pmsSerialTimeoutError, pmsChecksumMismatchError):
         logging.warning("Failed to read PMS5003")
     except IOError:
         logging.error("Could not get particulate matter readings. Resetting i2c.")
@@ -198,7 +199,7 @@ def collect_all_data():
 def post_to_influxdb():
     """Post all sensor data to InfluxDB"""
     name = 'enviroplus'
-    tag = ['location', 'adelaide']
+    tag = ['location', 'manila']
     while True:
         time.sleep(INFLUXDB_TIME_BETWEEN_POSTS)
         data_points = []
